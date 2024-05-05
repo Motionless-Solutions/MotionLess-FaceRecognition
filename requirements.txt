@@ -1,0 +1,4 @@
+fastapi
+numpy
+face-recognition
+opencv-python
