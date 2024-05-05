@@ -36,7 +36,6 @@ def face_recognizer(image_data):
         known_names.append(os.path.splitext(filename)[0])
 
     face_encodings = face_recognition.face_encodings(image, face_locations)
-    results = []
 
     for face_encoding, face_location in zip(face_encodings, face_locations):
         matches = face_recognition.compare_faces(known_encodings, face_encoding)
@@ -46,14 +45,17 @@ def face_recognizer(image_data):
             first_match_index = matches.index(True)
             name = known_names[first_match_index]
 
+        face_location = [
+            face_location[0],
+            face_location[1],
+            face_location[2],
+            face_location[3],
+        ]
         result = {
-            "top": face_location[0],
-            "right": face_location[1],
-            "bottom": face_location[2],
-            "left": face_location[3],
+            "face_location": face_location,  # "top", "right", "bottom", "left
             "name": name,
         }
 
-        results.append(result)
+        results = {"results": [result]}
 
     return results
