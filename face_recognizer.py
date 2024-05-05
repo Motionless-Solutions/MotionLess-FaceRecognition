@@ -1,3 +1,4 @@
+from io import BytesIO
 import os
 import face_recognition
 import cv2 as cv
@@ -5,9 +6,22 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 
-def face_recognizer(image_path):
+def face_recognizer(image_data):
+    """
+    Performs face recognition on an image provided as bytes.
 
-    image = face_recognition.load_image_file(image_path)
+    Args:
+        image_data (bytes): The image data in a byte format.
+
+    Returns:
+        list: A list of dictionaries containing face locations and names
+              (or "Unknown" if not recognized).
+    """
+
+    image_bytes = image_data.read()
+
+    image_array = np.frombuffer(image_bytes, dtype=np.uint8)
+    image = cv.imdecode(image_array, cv.IMREAD_COLOR)
 
     face_locations = face_recognition.face_locations(image)
 
@@ -43,23 +57,3 @@ def face_recognizer(image_path):
         results.append(result)
 
     return results
-
-
-# if __name__ == "__main__":
-#     image_path = "C:\\Users\\ynyas\\Downloads\\profile pic.jpg"
-#     results = face_recognizer(image_path)
-
-#     image = Image.open(image_path)
-#     draw = ImageDraw.Draw(image)
-
-#     for result in results:
-#         top, right, bottom, left = (
-#             result["top"],
-#             result["right"],
-#             result["bottom"],
-#             result["left"],
-#         )
-#         draw.rectangle([left, top, right, bottom], outline="red")
-#         draw.text((left, top), result["name"], fill="red")
-
-#     image.show()
