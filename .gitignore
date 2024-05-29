@@ -28,3 +28,5 @@ __pycache__/
 .env
 #image folder
 images/
+#database
+users.db
