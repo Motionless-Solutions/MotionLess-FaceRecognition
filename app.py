@@ -1,42 +1,27 @@
+from os import getenv
+from dotenv import load_dotenv
+
 from pathlib import Path
+from typing import Optional, Annotated, Union
 import secrets
 from PIL import Image
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status
+from sqlalchemy.orm import Session
+
+from src import models, schemas, database
 from src.face_recognizer import face_recognizer
-from src.auth import (
-    get_user_by_username,
-    get_current_user,
-    authenticate_user,
-    create_access_token,
-    User,
-    users_db,
-    pwd_context,
-)
+from src.database import get_db
+from src.routers.auth import get_current_user, router as auth_router
+from src.models import User
+
 
 app = FastAPI()
 
+models.Base.metadata.create_all(bind=database.engine)
+
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
+
 images_base_path = Path("images")
-
-
-@app.post("/register")
-async def register(username: str, password: str):
-    # Check for existing user
-    if await get_user_by_username(username):
-        raise HTTPException(status_code=400, detail="Username already exists")
-
-    hashed_password = pwd_context.hash(password)
-    new_user = User(username, hashed_password)
-    users_db[username] = new_user  # Update user data in database
-    return {"message": "User created successfully!"}
-
-
-@app.post("/login")
-async def login(username: str, password: str):
-    user = await authenticate_user(username, password)
-    if not user:
-        raise HTTPException(status_code=400, detail="Invalid username or password")
-    access_token = create_access_token(data={"sub": username})
-    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @app.post("/recognizer")
@@ -48,7 +33,7 @@ async def recognize(image: UploadFile = File(...)):
         image (UploadFile): The uploaded image file.
 
     Returns:
-        dict: A dictionary containing the name of the person and the coordinates of the box around the face.
+        list: A list of dictionaries containing face locations and names.
     """
     results = face_recognizer(image.file)
     return results
@@ -58,16 +43,16 @@ async def recognize(image: UploadFile = File(...)):
 async def add_image(
     name: str,
     image: UploadFile = File(...),
-    token: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Adds an image of a person to a user's private folder structure with a
-    randomized filename and preserves the original image format. requires JWT authentication
+    randomized filename and preserves the original image format. Requires JWT authentication.
 
     Args:
         name (str): Name of the person in the image.
         image (UploadFile): The uploaded image file.
-        token (str): User's access token (obtained through login).
+        current_user (User): The authenticated user object.
 
     Returns:
         dict: A dictionary containing a message indicating success or failure
@@ -75,8 +60,6 @@ async def add_image(
     """
 
     try:
-        # User is already authenticated through the "get_current_user" dependency
-
         # Validate image format
         try:
             image_object = Image.open(image.file)
@@ -87,7 +70,7 @@ async def add_image(
             )
 
         # Get username from the authenticated user object
-        username = token.username
+        username = current_user.username
 
         # Create user's folder structure if it doesn't exist
         user_folder = images_base_path / username / "pics"
@@ -109,4 +92,6 @@ async def add_image(
 
     except Exception as e:
         print(f"Error saving image: {e}")
-        return {"message": "Error saving image. Please try again."}
+        raise HTTPException(
+            status_code=500, detail="Error saving image. Please try again."
+        )

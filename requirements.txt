@@ -5,3 +5,7 @@ opencv-python
 python-jose
 passlib
 python-dotenv
+bcrypt
+jwt
+pyjwt
+sqlalchemy
