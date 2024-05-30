@@ -38,21 +38,18 @@ def face_recognizer(image_data):
 
     base_path = "images"
     for user_dir in os.listdir(base_path):
-        user_images_folder = os.path.join(base_path, user_dir, "pics")
+        user_images_folder = os.path.join(base_path, user_dir)
         if not os.path.isdir(user_images_folder):
             continue
 
         for filename in os.listdir(user_images_folder):
             file_path = os.path.join(user_images_folder, filename)
-            try:
-                known_image = face_recognition.load_image_file(file_path)
-                known_encodings.extend(face_recognition.face_encodings(known_image))
-                known_names.extend(
-                    [user_dir] * len(face_recognition.face_encodings(known_image))
-                )
-            except Exception as e:
-                print(f"Error processing image file '{file_path}': {e}")
-                continue
+
+            known_image = face_recognition.load_image_file(file_path)
+            known_encodings.extend(face_recognition.face_encodings(known_image))
+            known_names.extend(
+                [user_dir] * len(face_recognition.face_encodings(known_image))
+            )
 
     results = []
 

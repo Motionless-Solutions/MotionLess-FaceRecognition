@@ -15,6 +15,16 @@ Base = declarative_base()
 
 
 def get_db():
+    """
+    Dependency that provides a new database session for each request.
+
+    This function is used as a dependency in FastAPI routes to provide a
+    database session. It ensures that the session is properly closed
+    after the request is handled.
+
+    Yields:
+    db (Session): The database session.
+    """
     db = SessionLocal()
     try:
         yield db

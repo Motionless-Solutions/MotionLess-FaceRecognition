@@ -7,6 +7,7 @@ import secrets
 from PIL import Image
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status
 from sqlalchemy.orm import Session
+import uvicorn
 
 from src import models, schemas, database
 from src.face_recognizer import face_recognizer
@@ -40,11 +41,7 @@ async def recognize(image: UploadFile = File(...)):
 
 
 @app.post("/add_image")
-async def add_image(
-    name: str,
-    image: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-):
+async def add_image(name: str, image: UploadFile = File(...)):
     """
     Adds an image of a person to a user's private folder structure with a
     randomized filename and preserves the original image format. Requires JWT authentication.
@@ -70,10 +67,10 @@ async def add_image(
             )
 
         # Get username from the authenticated user object
-        username = current_user.username
+        # username = current_user.username
 
         # Create user's folder structure if it doesn't exist
-        user_folder = images_base_path / username / "pics"
+        user_folder = images_base_path / name
         user_folder.mkdir(parents=True, exist_ok=True)
 
         # Generate a random alphanumeric string (10 characters) for filename
@@ -83,10 +80,13 @@ async def add_image(
         filename = f"{random_filename}.{image.content_type.split('/')[-1]}"
         filepath = user_folder / filename
 
+        image = Image.open(image.file)
+        image.save(filepath)
+
         # Save the image to the created filepath
-        contents = await image.read()
-        with open(filepath, "wb") as f:
-            f.write(contents)
+        # contents = await image.read()
+        # with open(filepath, "wb") as f:
+        #     f.write(contents)
 
         return {"message": f"Image for {name} saved successfully! Filename: {filename}"}
 
@@ -95,3 +95,7 @@ async def add_image(
         raise HTTPException(
             status_code=500, detail="Error saving image. Please try again."
         )
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="localhost", port=8000)
