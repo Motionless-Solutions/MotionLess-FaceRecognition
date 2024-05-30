@@ -2,3 +2,10 @@ fastapi
 numpy
 face-recognition
 opencv-python
+python-jose
+passlib
+python-dotenv
+bcrypt
+jwt
+pyjwt
+sqlalchemy

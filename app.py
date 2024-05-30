@@ -1,10 +1,26 @@
+from os import getenv
+from dotenv import load_dotenv
+
 from pathlib import Path
+from typing import Optional, Annotated, Union
 import secrets
 from PIL import Image
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from face_recognizer import face_recognizer
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status
+from sqlalchemy.orm import Session
+import uvicorn
+
+from src import models, schemas, database
+from src.face_recognizer import face_recognizer
+from src.database import get_db
+from src.routers.auth import get_current_user, router as auth_router
+from src.models import User
+
 
 app = FastAPI()
+
+models.Base.metadata.create_all(bind=database.engine)
+
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
 images_base_path = Path("images")
 
@@ -18,7 +34,7 @@ async def recognize(image: UploadFile = File(...)):
         image (UploadFile): The uploaded image file.
 
     Returns:
-        dict: A dictionary containing the name of the person and the coordinates of the box around the face.
+        list: A list of dictionaries containing face locations and names.
     """
     results = face_recognizer(image.file)
     return results
@@ -27,48 +43,59 @@ async def recognize(image: UploadFile = File(...)):
 @app.post("/add_image")
 async def add_image(name: str, image: UploadFile = File(...)):
     """
-    Adds an image of a person to a folder structure with a randomized filename
-    and preserves the original image format.
+    Adds an image of a person to a user's private folder structure with a
+    randomized filename and preserves the original image format. Requires JWT authentication.
 
     Args:
         name (str): Name of the person in the image.
         image (UploadFile): The uploaded image file.
+        current_user (User): The authenticated user object.
 
     Returns:
         dict: A dictionary containing a message indicating success or failure
               and the saved filename.
     """
+
     try:
         # Validate image format
         try:
-            image_object = Image.open(image.file)  # Open the image in memory
-            image_object.verify()  # Check for valid image format
+            image_object = Image.open(image.file)
+            image_object.verify()
         except (IOError, SyntaxError):
             raise HTTPException(
                 status_code=400, detail="Uploaded file is not a valid image."
             )
 
-        # Create the base "images" folder if it doesn't exist
-        images_base_path.mkdir(parents=True, exist_ok=True)
+        # Get username from the authenticated user object
+        # username = current_user.username
 
-        # Create a subfolder for the person's name
-        person_folder = images_base_path / name
-        person_folder.mkdir(parents=True, exist_ok=True)
+        # Create user's folder structure if it doesn't exist
+        user_folder = images_base_path / name
+        user_folder.mkdir(parents=True, exist_ok=True)
 
         # Generate a random alphanumeric string (10 characters) for filename
         random_filename = secrets.token_urlsafe(10)
 
         # Extract and preserve original image extension
         filename = f"{random_filename}.{image.content_type.split('/')[-1]}"
-        filepath = person_folder / filename
+        filepath = user_folder / filename
+
+        image = Image.open(image.file)
+        image.save(filepath)
 
         # Save the image to the created filepath
-        contents = await image.read()
-        with open(filepath, "wb") as f:
-            f.write(contents)
+        # contents = await image.read()
+        # with open(filepath, "wb") as f:
+        #     f.write(contents)
 
         return {"message": f"Image for {name} saved successfully! Filename: {filename}"}
 
     except Exception as e:
         print(f"Error saving image: {e}")
-        return {"message": "Error saving image. Please try again."}
+        raise HTTPException(
+            status_code=500, detail="Error saving image. Please try again."
+        )
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="localhost", port=8000)
